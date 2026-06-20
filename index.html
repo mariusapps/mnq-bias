@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MNQ Pre-Market Bias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --panel:#12161F;
+    --panel-2:#161B26;
+    --border:#232838;
+    --text:#E8ECF1;
+    --text-dim:#828DA0;
+    --text-faint:#525A6B;
+    --bull:#4FBF8B;
+    --bull-dim:#2A4A3D;
+    --bear:#E2685A;
+    --bear-dim:#4A302C;
+    --neutral:#C9A227;
+    --accent:#5B8DEF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:28px 20px 80px;}
+
+  .topbar{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:1px solid var(--border);
+    padding-bottom:16px;margin-bottom:24px;
+  }
+  .topbar h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:22px;font-weight:700;margin:0;letter-spacing:-0.01em;
+  }
+  .topbar .sub{color:var(--text-dim);font-size:13px;margin-top:4px;}
+  .topbar .date{
+    font-family:'IBM Plex Mono',monospace;color:var(--text-dim);font-size:13px;text-align:right;
+  }
+
+  /* Gauge */
+  .gauge-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:24px 24px 20px;margin-bottom:22px;
+  }
+  .gauge-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+  .gauge-score{
+    font-family:'Space Grotesk',sans-serif;font-size:42px;font-weight:700;line-height:1;
+  }
+  .gauge-label{
+    font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;
+    padding:4px 12px;border-radius:20px;letter-spacing:0.02em;
+  }
+  .gauge-track{
+    position:relative;height:10px;border-radius:6px;margin:18px 0 10px;
+    background:linear-gradient(90deg,var(--bear) 0%, var(--bear) 18%, #3a3f2e 38%, var(--neutral) 50%, #2e3a30 62%, var(--bull) 82%, var(--bull) 100%);
+    opacity:0.85;
+  }
+  .gauge-marker{
+    position:absolute;top:-6px;width:3px;height:22px;background:#fff;border-radius:2px;
+    box-shadow:0 0 8px rgba(255,255,255,0.6);
+    transition:left 0.4s ease;
+  }
+  .gauge-ticks{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-faint);}
+  .gauge-breakdown{margin-top:16px;font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;}
+
+  /* Sections */
+  .section{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:18px 20px;margin-bottom:18px;
+  }
+  .section h2{
+    font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;
+    text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);
+    margin:0 0 14px;
+  }
+  .section-head-row{margin-bottom:4px;}
+  .fetch-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .fetch-btn{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    font-size:13px;font-weight:600;padding:10px 14px;border-radius:7px;cursor:pointer;
+    font-family:'Inter',sans-serif;white-space:nowrap;
+  }
+  .fetch-btn:hover{border-color:var(--accent);}
+  .fetch-btn:disabled{opacity:0.5;cursor:default;}
+  .fetch-status{font-size:11px;color:var(--text-faint);}
+  .fetch-status.err{color:var(--bear);}
+  .fetch-status.ok{color:var(--bull);}
+
+  .action-bar{margin-bottom:22px;}
+  .primary-btn{
+    display:block;width:100%;background:var(--accent);color:#fff;border:none;
+    font-size:14px;font-weight:600;padding:15px 16px;border-radius:9px;cursor:pointer;
+    font-family:'Inter',sans-serif;text-align:center;
+  }
+  .primary-btn:disabled{opacity:0.6;cursor:default;}
+  .primary-btn:hover{filter:brightness(1.08);}
+  .action-bar .fetch-status{margin-top:8px;text-align:center;}
+
+  .market-row{
+    display:grid;grid-template-columns:1fr 110px 90px;gap:10px;align-items:center;
+    padding:9px 0;border-bottom:1px solid var(--border);
+  }
+  .market-row:last-child{border-bottom:none;}
+  .market-row label{font-size:13px;color:var(--text);}
+  .market-row .unit{font-size:11px;color:var(--text-faint);display:block;margin-top:1px;}
+  input[type="number"]{
+    width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    font-family:'IBM Plex Mono',monospace;font-size:13px;padding:7px 9px;border-radius:6px;
+  }
+  input[type="number"]:focus{outline:none;border-color:var(--accent);}
+  .contrib{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding-right:4px;
+  }
+
+  /* Events */
+  .preset-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .preset-btn{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);
+    font-size:11px;padding:6px 10px;border-radius:14px;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .preset-btn:hover{border-color:var(--accent);color:var(--text);}
+  .add-row{display:flex;gap:8px;margin-bottom:14px;}
+  .add-row button{
+    background:var(--accent);color:#fff;border:none;font-size:12px;font-weight:600;
+    padding:8px 14px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .event-card{
+    background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px;margin-bottom:10px;
+  }
+  .event-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .event-name-input{
+    background:transparent;border:none;color:var(--text);font-size:14px;font-weight:600;
+    font-family:'Inter',sans-serif;padding:0;width:60%;
+  }
+  .event-name-input:focus{outline:none;}
+  .remove-btn{
+    background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:12px;padding:2px 6px;
+  }
+  .remove-btn:hover{color:var(--bear);}
+  .event-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;align-items:end;}
+  .field-group label{
+    display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;
+    color:var(--text-faint);margin-bottom:4px;
+  }
+  select{
+    width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    font-family:'Inter',sans-serif;font-size:12px;padding:7px 8px;border-radius:6px;
+  }
+  .event-contrib-row{
+    margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);
+    display:flex;justify-content:space-between;
+  }
+  .empty-state{color:var(--text-faint);font-size:12px;font-style:italic;padding:8px 0;}
+
+  /* Calibration (collapsible) */
+  details.section summary{
+    font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;
+    text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);cursor:pointer;
+    list-style:none;
+  }
+  details.section summary::-webkit-details-marker{display:none;}
+  details.section summary::before{content:"▸  ";}
+  details.section[open] summary::before{content:"▾  ";}
+  .calib-row{
+    display:grid;grid-template-columns:140px 1fr 60px 1fr 60px;gap:10px;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;
+  }
+  .calib-row:last-child{border-bottom:none;}
+  .calib-row .name{color:var(--text-dim);}
+  .calib-row .val{font-family:'IBM Plex Mono',monospace;text-align:right;color:var(--text);}
+  input[type="range"]{width:100%;accent-color:var(--accent);}
+  .calib-head{
+    display:grid;grid-template-columns:140px 1fr 60px 1fr 60px;gap:10px;
+    font-size:10px;text-transform:uppercase;color:var(--text-faint);letter-spacing:0.04em;
+    padding-bottom:8px;margin-top:8px;
+  }
+  .reset-link{
+    font-size:11px;color:var(--text-faint);background:none;border:none;cursor:pointer;
+    text-decoration:underline;padding:0;margin-top:10px;
+  }
+  .save-note{font-size:11px;color:var(--text-faint);margin-top:10px;}
+
+  /* Provider settings */
+  .provider-bar{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:14px 16px;margin-bottom:14px;
+  }
+  .provider-bar summary{
+    font-size:12px;font-weight:600;color:var(--text-dim);cursor:pointer;
+    list-style:none;display:flex;align-items:center;gap:8px;
+  }
+  .provider-bar summary::-webkit-details-marker{display:none;}
+  .provider-badge{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;
+    padding:2px 8px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);
+    color:var(--text-dim);margin-left:auto;
+  }
+  .provider-body{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+  .provider-row{display:flex;flex-direction:column;gap:4px;}
+  .provider-row label{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);}
+  .provider-tabs{display:flex;gap:6px;}
+  .ptab{
+    flex:1;padding:8px 10px;border-radius:7px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text-dim);font-size:12px;font-weight:600;
+    cursor:pointer;text-align:center;font-family:'Inter',sans-serif;
+  }
+  .ptab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  input[type="password"], input[type="text"].api-key-input{
+    width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px 10px;border-radius:6px;
+  }
+  input[type="password"]:focus, input[type="text"].api-key-input:focus{outline:none;border-color:var(--accent);}
+  .or-note{font-size:10px;color:var(--text-faint);line-height:1.5;}
+  .or-note a{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <h1>MNQ Pre-Market Bias</h1>
+      <div class="sub">NY session · 5-min</div>
+    </div>
+    <div class="date" id="dateLabel"></div>
+  </div>
+
+  <details class="provider-bar" id="providerDetails">
+    <summary>
+      ⚙ AI Provider
+      <span class="provider-badge" id="providerBadge">Claude built-in</span>
+    </summary>
+    <div class="provider-body">
+      <div class="provider-row">
+        <label>Provider</label>
+        <div class="provider-tabs">
+          <div class="ptab active" id="tabClaude" onclick="setProvider('claude')">Claude built-in</div>
+          <div class="ptab" id="tabOR" onclick="setProvider('openrouter')">OpenRouter</div>
+        </div>
+      </div>
+      <div id="orFields" style="display:none;flex-direction:column;gap:10px;">
+        <div class="provider-row">
+          <label>OpenRouter API Key</label>
+          <input type="password" id="orKey" placeholder="sk-or-v1-..." oninput="saveProviderSettings()">
+          <div class="or-note">Get a key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>. Stored locally in this page only, never sent anywhere except OpenRouter.</div>
+        </div>
+        <div class="provider-row">
+          <label>Model</label>
+          <select id="orModel" onchange="saveProviderSettings(); updateProviderBadge()">
+            <optgroup label="Google">
+              <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (fast)</option>
+            </optgroup>
+            <optgroup label="OpenAI">
+              <option value="openai/gpt-4o">GPT-4o</option>
+              <option value="openai/gpt-4o-mini">GPT-4o Mini (cheap)</option>
+              <option value="openai/o3">o3</option>
+            </optgroup>
+            <optgroup label="Meta">
+              <option value="meta-llama/llama-4-maverick">Llama 4 Maverick</option>
+              <option value="meta-llama/llama-4-scout">Llama 4 Scout (cheap)</option>
+            </optgroup>
+            <optgroup label="Mistral">
+              <option value="mistralai/mistral-large">Mistral Large</option>
+              <option value="mistralai/mistral-small-3.2-24b-instruct">Mistral Small 3.2</option>
+            </optgroup>
+            <optgroup label="Anthropic (via OR)">
+              <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
+              <option value="anthropic/claude-haiku-3-5">Claude Haiku 3.5 (cheap)</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <div class="action-bar">
+    <button class="primary-btn" id="fetchAllBtn" onclick="fetchAll()">⟳ Auto-fill market data + today's events</button>
+    <div class="fetch-status" id="topStatus">Pulls current overnight levels and today's economic calendar via web search.</div>
+  </div>
+
+  <div class="gauge-card">
+    <div class="gauge-top">
+      <div class="gauge-score" id="scoreVal">0.0</div>
+      <div class="gauge-label" id="biasLabel">NEUTRAL</div>
+    </div>
+    <div class="gauge-track">
+      <div class="gauge-marker" id="marker" style="left:50%;"></div>
+    </div>
+    <div class="gauge-ticks">
+      <span>STRONG BEAR</span><span>BEAR</span><span>NEUTRAL</span><span>BULL</span><span>STRONG BULL</span>
+    </div>
+    <div class="gauge-breakdown" id="breakdownLine">market: 0.0 &nbsp;|&nbsp; calendar: 0.0</div>
+  </div>
+
+  <div class="section">
+    <h2>Market Inputs — overnight change</h2>
+    <div class="fetch-row">
+      <button class="fetch-btn" id="fetchBtn" onclick="fetchOvernightData()">⟳ Fetch overnight data</button>
+      <span class="fetch-status" id="fetchStatus">Not fetched yet — enter manually or click fetch.</span>
+    </div>
+    <div id="marketRows"></div>
+  </div>
+
+  <div class="section">
+    <h2>Today's Events</h2>
+    <div class="fetch-row">
+      <button class="fetch-btn" id="fetchEventsBtn" onclick="fetchTodaysEvents()">⟳ Auto-fill today's events</button>
+      <span class="fetch-status" id="eventsFetchStatus">Not fetched yet — use a preset, add manually, or click fetch.</span>
+    </div>
+    <div class="preset-row" id="presetRow"></div>
+    <div class="add-row">
+      <button onclick="addEvent('data')">+ Add data release</button>
+      <button onclick="addEvent('headline')">+ Add headline / geopolitical</button>
+    </div>
+    <div id="eventList"></div>
+    <div class="empty-state" id="emptyState">No events added yet — use a preset above or add one manually.</div>
+  </div>
+
+  <details class="section">
+    <summary>Calibrate weights &amp; sensitivity</summary>
+    <div class="calib-head">
+      <div>Factor</div><div>Weight</div><div></div><div>Scale (1pt = )</div><div></div>
+    </div>
+    <div id="calibRows"></div>
+    <button class="reset-link" onclick="resetCalibration()">Reset to defaults</button>
+    <div class="save-note">Calibration saves automatically and persists across sessions. Daily inputs reset each time you open the tool.</div>
+  </details>
+
+</div>
+
+<script>
+// ---------- Config ----------
+const MARKET_DEFS = [
+  {key:'dxy', label:'DXY (Dollar Index)', unit:'%', sign:-1, defaultScale:0.30},
+  {key:'y10', label:'10Y Yield', unit:'bps', sign:-1, defaultScale:5},
+  {key:'vix', label:'VIX', unit:'%', sign:-1, defaultScale:5},
+  {key:'nqon', label:'NQ Futures (overnight)', unit:'%', sign:1, defaultScale:0.30},
+];
+
+const PRESETS = [
+  {name:'CPI / Core CPI', dir:'bearish'},
+  {name:'Non-Farm Payrolls', dir:'bearish'},
+  {name:'ISM Manufacturing PMI', dir:'bullish'},
+  {name:'ISM Services PMI', dir:'bullish'},
+  {name:'Retail Sales', dir:'bullish'},
+  {name:'Initial Jobless Claims', dir:'bearish'},
+  {name:'PPI', dir:'bearish'},
+  {name:'PCE Price Index', dir:'bearish'},
+];
+
+const IMPORTANCE_WEIGHT = {low:1, med:2, high:3};
+
+// ---------- State ----------
+let state = {
+  market: {},      // key -> numeric value typed by user
+  weights: {},      // key -> weight (0-2)
+  scales: {},       // key -> scale
+  events: []        // {id, type, name, actual, forecast, dirIfBeat, sentiment, importance}
+};
+
+MARKET_DEFS.forEach(m => {
+  state.weights[m.key] = 1.0;
+  state.scales[m.key] = m.defaultScale;
+});
+
+let eventIdCounter = 1;
+
+// ---------- Provider state ----------
+let provider = { type: 'claude', orKey: '', orModel: 'google/gemini-2.5-flash' };
+
+function setProvider(type){
+  provider.type = type;
+  document.getElementById('tabClaude').classList.toggle('active', type === 'claude');
+  document.getElementById('tabOR').classList.toggle('active', type === 'openrouter');
+  document.getElementById('orFields').style.display = type === 'openrouter' ? 'flex' : 'none';
+  updateProviderBadge();
+  saveProviderSettings();
+}
+
+function updateProviderBadge(){
+  const badge = document.getElementById('providerBadge');
+  if(provider.type === 'claude'){
+    badge.textContent = 'Claude built-in';
+  } else {
+    const sel = document.getElementById('orModel');
+    const label = sel.options[sel.selectedIndex]?.text || provider.orModel;
+    badge.textContent = label;
+  }
+}
+
+function saveProviderSettings(){
+  provider.orKey = document.getElementById('orKey').value;
+  provider.orModel = document.getElementById('orModel').value;
+  try{ localStorage.setItem('mnq-provider', JSON.stringify({type: provider.type, orKey: provider.orKey, orModel: provider.orModel})); }catch(e){}
+}
+
+function loadProviderSettings(){
+  try{
+    const saved = localStorage.getItem('mnq-provider');
+    if(saved){
+      const p = JSON.parse(saved);
+      provider.type = p.type || 'claude';
+      provider.orKey = p.orKey || '';
+      provider.orModel = p.orModel || 'google/gemini-2.5-flash';
+      if(provider.type === 'openrouter') setProvider('openrouter');
+      document.getElementById('orKey').value = provider.orKey;
+      document.getElementById('orModel').value = provider.orModel;
+      updateProviderBadge();
+    }
+  }catch(e){}
+}
+
+// ---------- Unified AI call ----------
+async function callAI(prompt){
+  if(provider.type === 'claude'){
+    // Claude built-in path (uses session quota, includes web search)
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search_20250305", name: "web_search" }]
+      })
+    });
+    const data = await resp.json();
+    if(data.error) throw new Error(data.error.message || 'Claude API error');
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    return text;
+  } else {
+    // OpenRouter path
+    if(!provider.orKey) throw new Error('OpenRouter API key not set — open AI Provider settings above');
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + provider.orKey,
+        "HTTP-Referer": "mnq-bias-tool",
+        "X-Title": "MNQ Pre-Market Bias"
+      },
+      body: JSON.stringify({
+        model: provider.orModel,
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    if(data.error) throw new Error(data.error.message || 'OpenRouter API error');
+    return data.choices?.[0]?.message?.content || '';
+  }
+}
+
+
+async function saveCalibration(){
+  try{
+    await window.storage.set('mnq-bias-calibration', JSON.stringify({
+      weights: state.weights, scales: state.scales
+    }));
+  }catch(e){ /* storage unavailable, continue silently */ }
+}
+async function loadCalibration(){
+  try{
+    const res = await window.storage.get('mnq-bias-calibration');
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      if(parsed.weights) state.weights = {...state.weights, ...parsed.weights};
+      if(parsed.scales) state.scales = {...state.scales, ...parsed.scales};
+    }
+  }catch(e){ /* no saved calibration yet */ }
+}
+
+function resetCalibration(){
+  MARKET_DEFS.forEach(m => {
+    state.weights[m.key] = 1.0;
+    state.scales[m.key] = m.defaultScale;
+  });
+  saveCalibration();
+  renderCalibration();
+  recompute();
+}
+
+// ---------- Scoring ----------
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+function marketContribution(key){
+  const def = MARKET_DEFS.find(m => m.key === key);
+  const raw = state.market[key];
+  if(raw === undefined || raw === null || raw === '' || isNaN(raw)) return 0;
+  const norm = clamp(raw / state.scales[key], -2, 2);
+  return def.sign * state.weights[key] * norm;
+}
+
+function eventContribution(ev){
+  const w = IMPORTANCE_WEIGHT[ev.importance] || 2;
+  if(ev.type === 'headline'){
+    return w * (ev.sentiment === 'bullish' ? 1 : -1);
+  }
+  // data release
+  const a = parseFloat(ev.actual), f = parseFloat(ev.forecast);
+  if(isNaN(a) || isNaN(f) || a === f) return 0;
+  const beat = a > f;
+  const beatIsBullish = ev.dirIfBeat === 'bullish';
+  const sign = beat ? (beatIsBullish ? 1 : -1) : (beatIsBullish ? -1 : 1);
+  return w * sign;
+}
+
+function recompute(){
+  let marketTotal = 0;
+  MARKET_DEFS.forEach(m => marketTotal += marketContribution(m.key));
+  let eventTotal = 0;
+  state.events.forEach(ev => eventTotal += eventContribution(ev));
+  const composite = marketTotal + eventTotal;
+
+  document.getElementById('scoreVal').textContent = (composite >= 0 ? '+' : '') + composite.toFixed(1);
+  document.getElementById('breakdownLine').textContent =
+    `market: ${marketTotal>=0?'+':''}${marketTotal.toFixed(1)}   |   calendar: ${eventTotal>=0?'+':''}${eventTotal.toFixed(1)}`;
+
+  let label, color;
+  if(composite >= 4){ label='STRONG BULLISH'; color='var(--bull)'; }
+  else if(composite >= 1.5){ label='BULLISH'; color='var(--bull)'; }
+  else if(composite > -1.5){ label='NEUTRAL'; color='var(--neutral)'; }
+  else if(composite > -4){ label='BEARISH'; color='var(--bear)'; }
+  else { label='STRONG BEARISH'; color='var(--bear)'; }
+
+  const labelEl = document.getElementById('biasLabel');
+  labelEl.textContent = label;
+  labelEl.style.color = color;
+  labelEl.style.background = color === 'var(--bull)' ? 'var(--bull-dim)' : color === 'var(--bear)' ? 'var(--bear-dim)' : '#3a3220';
+  document.getElementById('scoreVal').style.color = color;
+
+  // marker position: composite range -6..6 mapped to 0..100%
+  const pct = clamp(((composite + 6) / 12) * 100, 2, 98);
+  document.getElementById('marker').style.left = pct + '%';
+
+  // refresh per-row contribution displays
+  MARKET_DEFS.forEach(m => {
+    const el = document.getElementById('contrib-' + m.key);
+    if(el){
+      const c = marketContribution(m.key);
+      el.textContent = (c>=0?'+':'') + c.toFixed(2);
+      el.style.color = c > 0.05 ? 'var(--bull)' : c < -0.05 ? 'var(--bear)' : 'var(--text-faint)';
+    }
+  });
+  state.events.forEach(ev => {
+    const el = document.getElementById('evcontrib-' + ev.id);
+    if(el){
+      const c = eventContribution(ev);
+      el.textContent = 'Contribution: ' + (c>=0?'+':'') + c.toFixed(1);
+      el.style.color = c > 0 ? 'var(--bull)' : c < 0 ? 'var(--bear)' : 'var(--text-faint)';
+    }
+  });
+}
+
+// ---------- Rendering: Market rows ----------
+function renderMarketRows(){
+  const container = document.getElementById('marketRows');
+  container.innerHTML = '';
+  MARKET_DEFS.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'market-row';
+    row.innerHTML = `
+      <label>${m.label}<span class="unit">${m.sign>0?'higher = bullish':'higher = bearish'}</span></label>
+      <input type="number" step="0.01" placeholder="0.00" id="input-${m.key}">
+      <div class="contrib" id="contrib-${m.key}">0.00</div>
+    `;
+    container.appendChild(row);
+    row.querySelector('input').addEventListener('input', (e) => {
+      state.market[m.key] = e.target.value === '' ? null : parseFloat(e.target.value);
+      recompute();
+    });
+  });
+}
+
+// ---------- Rendering: Presets ----------
+function renderPresets(){
+  const container = document.getElementById('presetRow');
+  container.innerHTML = '';
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.textContent = '+ ' + p.name;
+    btn.onclick = () => {
+      state.events.push({
+        id: eventIdCounter++, type:'data', name:p.name, actual:'', forecast:'',
+        dirIfBeat:p.dir, importance:'med'
+      });
+      renderEvents();
+      recompute();
+    };
+    container.appendChild(btn);
+  });
+}
+
+// ---------- Rendering: Events ----------
+function addEvent(type){
+  state.events.push(type === 'data'
+    ? {id:eventIdCounter++, type:'data', name:'', actual:'', forecast:'', dirIfBeat:'bearish', importance:'med'}
+    : {id:eventIdCounter++, type:'headline', name:'', sentiment:'bearish', importance:'med'}
+  );
+  renderEvents();
+  recompute();
+}
+
+function removeEvent(id){
+  state.events = state.events.filter(e => e.id !== id);
+  renderEvents();
+  recompute();
+}
+
+function renderEvents(){
+  const container = document.getElementById('eventList');
+  const empty = document.getElementById('emptyState');
+  container.innerHTML = '';
+  empty.style.display = state.events.length === 0 ? 'block' : 'none';
+
+  state.events.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'event-card';
+
+    let fieldsHtml = '';
+    if(ev.type === 'data'){
+      fieldsHtml = `
+        <div class="field-group"><label>Actual</label>
+          <input type="number" step="any" value="${ev.actual}" id="actual-${ev.id}"></div>
+        <div class="field-group"><label>Forecast</label>
+          <input type="number" step="any" value="${ev.forecast}" id="forecast-${ev.id}"></div>
+        <div class="field-group"><label>If actual beats forecast</label>
+          <select id="dir-${ev.id}">
+            <option value="bearish" ${ev.dirIfBeat==='bearish'?'selected':''}>Bearish for NQ</option>
+            <option value="bullish" ${ev.dirIfBeat==='bullish'?'selected':''}>Bullish for NQ</option>
+          </select></div>
+        <div class="field-group"><label>Importance</label>
+          <select id="imp-${ev.id}">
+            <option value="low" ${ev.importance==='low'?'selected':''}>Low</option>
+            <option value="med" ${ev.importance==='med'?'selected':''}>Medium</option>
+            <option value="high" ${ev.importance==='high'?'selected':''}>High</option>
+          </select></div>
+      `;
+    } else {
+      fieldsHtml = `
+        <div class="field-group"><label>Reads as</label>
+          <select id="sent-${ev.id}">
+            <option value="bearish" ${ev.sentiment==='bearish'?'selected':''}>Bearish for NQ</option>
+            <option value="bullish" ${ev.sentiment==='bullish'?'selected':''}>Bullish for NQ</option>
+          </select></div>
+        <div class="field-group"><label>Importance</label>
+          <select id="imp-${ev.id}">
+            <option value="low" ${ev.importance==='low'?'selected':''}>Low</option>
+            <option value="med" ${ev.importance==='med'?'selected':''}>Medium</option>
+            <option value="high" ${ev.importance==='high'?'selected':''}>High</option>
+          </select></div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="event-card-top">
+        <input class="event-name-input" value="${ev.name}" placeholder="Event name" id="name-${ev.id}">
+        <button class="remove-btn" onclick="removeEvent(${ev.id})">remove</button>
+      </div>
+      <div class="event-fields">${fieldsHtml}</div>
+      <div class="event-contrib-row">
+        <span>${ev.type === 'data' ? 'Data release' : 'Headline / geopolitical'}</span>
+        <span id="evcontrib-${ev.id}">Contribution: +0.0</span>
+      </div>
+    `;
+    container.appendChild(card);
+
+    card.querySelector('#name-' + ev.id).addEventListener('input', e => { ev.name = e.target.value; });
+    if(ev.type === 'data'){
+      card.querySelector('#actual-' + ev.id).addEventListener('input', e => { ev.actual = e.target.value; recompute(); });
+      card.querySelector('#forecast-' + ev.id).addEventListener('input', e => { ev.forecast = e.target.value; recompute(); });
+      card.querySelector('#dir-' + ev.id).addEventListener('change', e => { ev.dirIfBeat = e.target.value; recompute(); });
+    } else {
+      card.querySelector('#sent-' + ev.id).addEventListener('change', e => { ev.sentiment = e.target.value; recompute(); });
+    }
+    card.querySelector('#imp-' + ev.id).addEventListener('change', e => { ev.importance = e.target.value; recompute(); });
+  });
+}
+
+// ---------- Rendering: Calibration ----------
+function renderCalibration(){
+  const container = document.getElementById('calibRows');
+  container.innerHTML = '';
+  MARKET_DEFS.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'calib-row';
+    row.innerHTML = `
+      <div class="name">${m.label}</div>
+      <input type="range" min="0" max="2" step="0.1" value="${state.weights[m.key]}" id="w-${m.key}">
+      <div class="val" id="wval-${m.key}">${state.weights[m.key].toFixed(1)}x</div>
+      <input type="range" min="0.05" max="${m.unit==='bps'?20:2}" step="${m.unit==='bps'?0.5:0.05}" value="${state.scales[m.key]}" id="s-${m.key}">
+      <div class="val" id="sval-${m.key}">${state.scales[m.key]}${m.unit}</div>
+    `;
+    container.appendChild(row);
+    row.querySelector('#w-' + m.key).addEventListener('input', e => {
+      state.weights[m.key] = parseFloat(e.target.value);
+      document.getElementById('wval-' + m.key).textContent = state.weights[m.key].toFixed(1) + 'x';
+      recompute(); saveCalibration();
+    });
+    row.querySelector('#s-' + m.key).addEventListener('input', e => {
+      state.scales[m.key] = parseFloat(e.target.value);
+      document.getElementById('sval-' + m.key).textContent = state.scales[m.key] + m.unit;
+      recompute(); saveCalibration();
+    });
+  });
+}
+
+// ---------- Shared response parser ----------
+function parseAIResponse(text){
+  const match = text.match(/\{[\s\S]*\}/);
+  if(!match) throw new Error('No JSON found in response');
+  return JSON.parse(match[0]);
+}
+
+function applyMarketData(parsed, statusEl){
+  const fieldMap = {dxy:'dxy_pct', y10:'y10_bps', vix:'vix_pct', nqon:'nq_pct'};
+  let updatedAny = false;
+  Object.keys(fieldMap).forEach(key => {
+    const v = parsed[fieldMap[key]];
+    if(v !== null && v !== undefined && !isNaN(v)){
+      state.market[key] = parseFloat(v);
+      const input = document.getElementById('input-' + key);
+      if(input) input.value = v;
+      updatedAny = true;
+    }
+  });
+  recompute();
+  if(updatedAny){
+    statusEl.className = 'fetch-status ok';
+    const extra = (parsed.vix_level != null) ? ` · VIX level ${parsed.vix_level}` : '';
+    statusEl.textContent = `Updated as of ${parsed.asof || 'latest available'}${extra}. Verify before trading.`;
+  } else {
+    statusEl.className = 'fetch-status err';
+    statusEl.textContent = "Couldn't extract market values — enter manually below.";
+  }
+  return updatedAny;
+}
+
+function applyEventsData(parsed, statusEl){
+  state.events = [];
+  (parsed.dataEvents || []).forEach(de => {
+    state.events.push({
+      id: eventIdCounter++, type: 'data',
+      name: de.name || '',
+      actual: (de.actual == null) ? '' : de.actual,
+      forecast: (de.forecast == null) ? '' : de.forecast,
+      dirIfBeat: de.directionIfBeat === 'bullish' ? 'bullish' : 'bearish',
+      importance: ['low','med','high'].includes(de.importance) ? de.importance : 'med'
+    });
+  });
+  (parsed.headlineEvents || []).forEach(he => {
+    state.events.push({
+      id: eventIdCounter++, type: 'headline',
+      name: he.name || '',
+      sentiment: he.sentiment === 'bullish' ? 'bullish' : 'bearish',
+      importance: ['low','med','high'].includes(he.importance) ? he.importance : 'med'
+    });
+  });
+  renderEvents();
+  recompute();
+  const count = state.events.length;
+  statusEl.className = 'fetch-status ok';
+  statusEl.textContent = count > 0
+    ? `Found ${count} item${count===1?'':'s'} as of ${parsed.asof || 'latest available'}.`
+    : "No qualifying events today — add manually if needed.";
+}
+
+// ---------- Auto-fetch overnight data ----------
+async function fetchOvernightData(){
+  const btn = document.getElementById('fetchBtn');
+  const status = document.getElementById('fetchStatus');
+  btn.disabled = true;
+  status.className = 'fetch-status';
+  status.textContent = 'Fetching DXY, 10Y yield, VIX, NQ futures...';
+  const todayStr = new Date().toDateString();
+  const prompt = `It is ${todayStr}, pre-market US hours. Search for the most recent values of:
+1. ICE U.S. Dollar Index (DXY) - percent change from prior session close.
+2. 10-Year U.S. Treasury yield - change in basis points from prior session close.
+3. CBOE VIX - current level and percent change from prior session close.
+4. Nasdaq-100 E-mini futures (NQ) - percent change from prior day ~4pm ET close to most recent overnight/pre-market level.
+Respond ONLY with a JSON object, no markdown, no extra text. Schema (use null if unavailable):
+{"dxy_pct":number,"y10_bps":number,"vix_level":number,"vix_pct":number,"nq_pct":number,"asof":"string"}`;
+  try{
+    const text = await callAI(prompt);
+    const parsed = parseAIResponse(text);
+    applyMarketData(parsed, status);
+  } catch(e){
+    status.className = 'fetch-status err';
+    status.textContent = "Fetch failed: " + e.message;
+  } finally { btn.disabled = false; }
+}
+
+// ---------- Auto-fetch today's events ----------
+async function fetchTodaysEvents(){
+  const btn = document.getElementById('fetchEventsBtn');
+  const status = document.getElementById('eventsFetchStatus');
+  btn.disabled = true;
+  status.className = 'fetch-status';
+  status.textContent = "Fetching today's economic calendar and headlines...";
+  const todayStr = new Date().toDateString();
+  const prompt = `It is ${todayStr}. List US economic releases scheduled today that are high/medium importance for Nasdaq-100: CPI, PPI, PCE, NFP, ISM PMI, Retail Sales, Jobless Claims, GDP, FOMC etc. For each: name, actual (if released, else null), forecast/consensus (else null), whether a beat is bullish or bearish for NQ. Also list notable market-moving geopolitical or central-bank headlines from today with bullish/bearish read and importance. Return empty arrays if nothing qualifies. Do NOT invent events.
+Respond ONLY with JSON, no markdown. Schema:
+{"dataEvents":[{"name":string,"actual":number|null,"forecast":number|null,"directionIfBeat":"bullish|bearish","importance":"low|med|high"}],"headlineEvents":[{"name":string,"sentiment":"bullish|bearish","importance":"low|med|high"}],"asof":string}`;
+  try{
+    const text = await callAI(prompt);
+    const parsed = parseAIResponse(text);
+    applyEventsData(parsed, status);
+  } catch(e){
+    status.className = 'fetch-status err';
+    status.textContent = "Fetch failed: " + e.message;
+  } finally { btn.disabled = false; }
+}
+
+// ---------- Combined fetch — single AI call ----------
+async function fetchAll(){
+  const btn = document.getElementById('fetchAllBtn');
+  const topStatus = document.getElementById('topStatus');
+  const marketStatus = document.getElementById('fetchStatus');
+  const eventsStatus = document.getElementById('eventsFetchStatus');
+  btn.disabled = true;
+  topStatus.textContent = 'Fetching market data + events in one request...';
+  marketStatus.className = 'fetch-status'; marketStatus.textContent = 'Fetching...';
+  eventsStatus.className = 'fetch-status'; eventsStatus.textContent = 'Fetching...';
+
+  const todayStr = new Date().toDateString();
+  const prompt = `It is ${todayStr}, pre-market US hours.
+
+PART 1 — Market levels: search for most recent values of:
+1. ICE DXY - percent change from prior session close.
+2. 10Y Treasury yield - change in basis points from prior session close.
+3. CBOE VIX - current level and percent change from prior session close.
+4. NQ E-mini futures - percent change from prior day ~4pm ET close to most recent pre-market level.
+
+PART 2 — Today's events: list US economic releases today high/medium importance for NQ (CPI, PPI, PCE, NFP, ISM PMI, Retail Sales, Jobless Claims, GDP, FOMC etc). For each: name, actual if released (else null), forecast (else null), whether a beat is bullish or bearish for NQ. Also list notable geopolitical/central-bank market headlines from today with bullish/bearish read and importance. Return empty arrays if nothing qualifies. Do NOT invent events.
+
+Respond ONLY with one JSON object, no markdown fences, no extra text. Schema (null for unavailable):
+{"dxy_pct":number|null,"y10_bps":number|null,"vix_level":number|null,"vix_pct":number|null,"nq_pct":number|null,"dataEvents":[{"name":string,"actual":number|null,"forecast":number|null,"directionIfBeat":"bullish|bearish","importance":"low|med|high"}],"headlineEvents":[{"name":string,"sentiment":"bullish|bearish","importance":"low|med|high"}],"asof":string}`;
+
+  try{
+    const text = await callAI(prompt);
+    const parsed = parseAIResponse(text);
+    applyMarketData(parsed, marketStatus);
+    applyEventsData(parsed, eventsStatus);
+    topStatus.textContent = 'Done — verify figures against your own feed before trading.';
+  } catch(e){
+    const msg = "Fetch failed: " + e.message;
+    topStatus.textContent = msg;
+    marketStatus.className = 'fetch-status err'; marketStatus.textContent = msg;
+    eventsStatus.className = 'fetch-status err'; eventsStatus.textContent = msg;
+  } finally { btn.disabled = false; }
+}
+
+// ---------- Init ----------
+async function init(){
+  document.getElementById('dateLabel').textContent = new Date().toLocaleDateString('en-US', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+  await loadCalibration();
+  loadProviderSettings();
+  renderMarketRows();
+  renderPresets();
+  renderEvents();
+  renderCalibration();
+  recompute();
+}
+init();
+</script>
+</body>
+</html>
